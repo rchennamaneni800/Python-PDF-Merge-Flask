@@ -29,7 +29,7 @@ DOWNLOADS_FOLDER = 'downloads'
 for folder in [UPLOAD_FOLDER, CONVERTED_FOLDER, OUTPUT_FOLDER, DOWNLOADS_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
-conversion_progress = {"current": 0, "total": 0, "status": "idle", "estimated_time": 0}
+conversion_progress = {"current": 0, "total": 0, "status": "idle", "estimated_time": 0, "current_file": ""}
 
 ALLOWED_EXTENSIONS = {'doc', 'docx', 'rtf'}
 
@@ -185,7 +185,7 @@ def upload_files():
             if os.path.isfile(file_path):
                 os.remove(file_path)
     
-    conversion_progress = {"current": 0, "total": len(files), "status": "converting", "estimated_time": 0}
+    conversion_progress = {"current": 0, "total": len(files), "status": "converting", "estimated_time": 0, "current_file": ""}
     start_time = time.time()
     
     uploaded_files = []
@@ -197,6 +197,8 @@ def upload_files():
             file_path = os.path.join(UPLOAD_FOLDER, filename)
             file.save(file_path)
             uploaded_files.append(file_path)
+            
+            conversion_progress["current_file"] = filename
             
             pdf_filename = os.path.splitext(filename)[0] + '.pdf'
             pdf_path = os.path.join(UPLOAD_FOLDER, pdf_filename)
@@ -219,12 +221,14 @@ def upload_files():
         return redirect(url_for('index'))
     
     conversion_progress["status"] = "merging"
+    conversion_progress["current_file"] = "merged_document.pdf"
     converted_pdfs.sort()
     
     for pdf_path in converted_pdfs:
         pdf_filename = os.path.basename(pdf_path)
         output_pdf_path = os.path.join(selected_folder, pdf_filename)
-        shutil.copy2(pdf_path, output_pdf_path)
+        if os.path.abspath(pdf_path) != os.path.abspath(output_pdf_path):
+            shutil.copy2(pdf_path, output_pdf_path)
     
     output_filename = 'merged_document.pdf'
     output_path = os.path.join(selected_folder, output_filename)

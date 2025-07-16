@@ -208,6 +208,36 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        .progress-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        
+        .progress-info {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.9em;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -256,7 +286,13 @@
         
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p>Converting and merging documents...</p>
+            <p id="progressText">Converting and merging documents...</p>
+            <div class="progress-container" style="margin-top: 15px;">
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-info" id="progressInfo">0 / 0 files</div>
+            </div>
         </div>
         
         <div class="features">
@@ -310,12 +346,22 @@
             fetch('/progress')
                 .then(response => response.json())
                 .then(data => {
-                    const progressText = document.querySelector('#loading p');
+                    const progressText = document.getElementById('progressText');
+                    const progressFill = document.getElementById('progressFill');
+                    const progressInfo = document.getElementById('progressInfo');
+                    
                     if (data.status === 'converting') {
+                        const percentage = data.total > 0 ? (data.current / data.total) * 100 : 0;
                         const timeLeft = data.estimated_time > 0 ? ` (${Math.round(data.estimated_time)}s remaining)` : '';
-                        progressText.textContent = `Converting ${data.current}/${data.total} files${timeLeft}...`;
+                        const currentFile = data.current_file ? `: ${data.current_file}` : '';
+                        
+                        progressText.textContent = `Converting files${timeLeft}${currentFile}`;
+                        progressFill.style.width = `${percentage}%`;
+                        progressInfo.textContent = `${data.current} / ${data.total} files`;
                     } else if (data.status === 'merging') {
                         progressText.textContent = 'Merging PDFs and creating bookmarks...';
+                        progressFill.style.width = '100%';
+                        progressInfo.textContent = 'Finalizing...';
                     }
                 })
                 .catch(error => {
