@@ -239,6 +239,15 @@
                 
                 <div class="file-list" id="fileList"></div>
                 
+                <div class="folder-selection" style="margin-bottom: 20px;">
+                    <label for="outputFolder" style="display: block; margin-bottom: 8px; color: #333; font-weight: 600;">Save Location:</label>
+                    <select name="output_folder" id="outputFolder" style="width: 100%; padding: 10px; border: 1px solid #dee2e6; border-radius: 8px; font-size: 1em;">
+                        <option value="output">Output Folder</option>
+                        <option value="uploads">Uploads Folder</option>
+                        <option value="downloads">Downloads Folder</option>
+                    </select>
+                </div>
+                
                 <button type="submit" class="submit-button" id="submitButton" disabled>
                     🔄 Convert & Merge to PDF
                 </button>
@@ -291,10 +300,40 @@
             }
         });
         
+        let progressInterval;
+        
+        function startProgressTracking() {
+            progressInterval = setInterval(updateProgress, 1000);
+        }
+        
+        function updateProgress() {
+            fetch('/progress')
+                .then(response => response.json())
+                .then(data => {
+                    const progressText = document.querySelector('#loading p');
+                    if (data.status === 'converting') {
+                        const timeLeft = data.estimated_time > 0 ? ` (${Math.round(data.estimated_time)}s remaining)` : '';
+                        progressText.textContent = `Converting ${data.current}/${data.total} files${timeLeft}...`;
+                    } else if (data.status === 'merging') {
+                        progressText.textContent = 'Merging PDFs and creating bookmarks...';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching progress:', error);
+                });
+        }
+        
+        function stopProgressTracking() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+        }
+        
         uploadForm.addEventListener('submit', function() {
             loading.style.display = 'block';
             submitButton.disabled = true;
             submitButton.textContent = 'Processing...';
+            startProgressTracking();
         });
     </script>
 </body>

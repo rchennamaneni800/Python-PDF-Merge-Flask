@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file, flash, redirect, url_for
+from flask import Flask, request, render_template, send_file, flash, redirect, url_for, jsonify
 import os
 import tempfile
 import zipfile
@@ -13,6 +13,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import subprocess
 import io
+import time
+import threading
+import shutil
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -21,9 +24,12 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 UPLOAD_FOLDER = 'uploads'
 CONVERTED_FOLDER = 'converted'
 OUTPUT_FOLDER = 'output'
+DOWNLOADS_FOLDER = 'downloads'
 
-for folder in [UPLOAD_FOLDER, CONVERTED_FOLDER, OUTPUT_FOLDER]:
+for folder in [UPLOAD_FOLDER, CONVERTED_FOLDER, OUTPUT_FOLDER, DOWNLOADS_FOLDER]:
     os.makedirs(folder, exist_ok=True)
+
+conversion_progress = {"current": 0, "total": 0, "status": "idle", "estimated_time": 0}
 
 ALLOWED_EXTENSIONS = {'doc', 'docx', 'rtf'}
 
@@ -143,12 +149,18 @@ def merge_pdfs_with_bookmarks(pdf_files, output_path, include_toc=True):
     
     return output_path
 
+@app.route('/progress')
+def get_progress():
+    return jsonify(conversion_progress)
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_files():
+    global conversion_progress
+    
     if 'files' not in request.files:
         flash('No files selected')
         return redirect(url_for('index'))
@@ -159,16 +171,27 @@ def upload_files():
         flash('No files selected')
         return redirect(url_for('index'))
     
-    for folder in [UPLOAD_FOLDER, CONVERTED_FOLDER, OUTPUT_FOLDER]:
+    output_folder_name = request.form.get('output_folder', 'output')
+    if output_folder_name == 'output':
+        selected_folder = OUTPUT_FOLDER
+    elif output_folder_name == 'downloads':
+        selected_folder = DOWNLOADS_FOLDER
+    else:
+        selected_folder = UPLOAD_FOLDER
+    
+    for folder in [UPLOAD_FOLDER, CONVERTED_FOLDER, OUTPUT_FOLDER, DOWNLOADS_FOLDER]:
         for file in os.listdir(folder):
             file_path = os.path.join(folder, file)
             if os.path.isfile(file_path):
                 os.remove(file_path)
     
+    conversion_progress = {"current": 0, "total": len(files), "status": "converting", "estimated_time": 0}
+    start_time = time.time()
+    
     uploaded_files = []
     converted_pdfs = []
     
-    for file in files:
+    for i, file in enumerate(files):
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             file_path = os.path.join(UPLOAD_FOLDER, filename)
@@ -182,21 +205,37 @@ def upload_files():
                 converted_pdfs.append(pdf_path)
             else:
                 flash(f'Failed to convert {filename}')
+            
+            conversion_progress["current"] = i + 1
+            elapsed = time.time() - start_time
+            if i > 0:
+                avg_time_per_file = elapsed / (i + 1)
+                remaining_files = len(files) - (i + 1)
+                conversion_progress["estimated_time"] = remaining_files * avg_time_per_file
     
     if not converted_pdfs:
+        conversion_progress["status"] = "idle"
         flash('No files were successfully converted to PDF')
         return redirect(url_for('index'))
     
+    conversion_progress["status"] = "merging"
     converted_pdfs.sort()
     
+    for pdf_path in converted_pdfs:
+        pdf_filename = os.path.basename(pdf_path)
+        output_pdf_path = os.path.join(selected_folder, pdf_filename)
+        shutil.copy2(pdf_path, output_pdf_path)
+    
     output_filename = 'merged_document.pdf'
-    output_path = os.path.join(UPLOAD_FOLDER, output_filename)
+    output_path = os.path.join(selected_folder, output_filename)
     
     try:
         merge_pdfs_with_bookmarks(converted_pdfs, output_path, include_toc=True)
+        conversion_progress["status"] = "idle"
         flash(f'Successfully processed {len(converted_pdfs)} documents!')
         return send_file(output_path, as_attachment=True, download_name=output_filename)
     except Exception as e:
+        conversion_progress["status"] = "idle"
         flash(f'Error merging PDFs: {str(e)}')
         return redirect(url_for('index'))
 
