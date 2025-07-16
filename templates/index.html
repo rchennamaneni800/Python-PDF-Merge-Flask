@@ -346,6 +346,7 @@
             fetch('/progress')
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Progress data:', data);
                     const progressText = document.getElementById('progressText');
                     const progressFill = document.getElementById('progressFill');
                     const progressInfo = document.getElementById('progressInfo');
@@ -362,6 +363,11 @@
                         progressText.textContent = 'Merging PDFs and creating bookmarks...';
                         progressFill.style.width = '100%';
                         progressInfo.textContent = 'Finalizing...';
+                    } else if (data.status === 'idle' && data.total > 0) {
+                        progressText.textContent = 'Conversion completed!';
+                        progressFill.style.width = '100%';
+                        progressInfo.textContent = `${data.total} / ${data.total} files completed`;
+                        stopProgressTracking();
                     }
                 })
                 .catch(error => {
