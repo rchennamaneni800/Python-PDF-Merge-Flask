@@ -105,7 +105,7 @@ def merge_pdfs_with_bookmarks(pdf_files, output_path, include_toc=True):
     writer = PdfWriter()
     
     if include_toc:
-        toc_path = os.path.join(OUTPUT_FOLDER, 'toc_temp.pdf')
+        toc_path = os.path.join(os.path.dirname(output_path), 'toc_temp.pdf')
         create_toc_pdf(pdf_files, toc_path)
         
         with open(toc_path, 'rb') as toc_file:
@@ -190,7 +190,7 @@ def upload_files():
     converted_pdfs.sort()
     
     output_filename = 'merged_document.pdf'
-    output_path = os.path.join(OUTPUT_FOLDER, output_filename)
+    output_path = os.path.join(UPLOAD_FOLDER, output_filename)
     
     try:
         merge_pdfs_with_bookmarks(converted_pdfs, output_path, include_toc=True)
