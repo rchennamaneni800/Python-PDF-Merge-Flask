@@ -199,7 +199,7 @@ def upload_files():
             uploaded_files.append(file_path)
             
             pdf_filename = os.path.splitext(filename)[0] + '.pdf'
-            pdf_path = os.path.join(CONVERTED_FOLDER, pdf_filename)
+            pdf_path = os.path.join(UPLOAD_FOLDER, pdf_filename)
             
             if convert_to_pdf(file_path, pdf_path):
                 converted_pdfs.append(pdf_path)
