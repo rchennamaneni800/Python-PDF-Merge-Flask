@@ -292,6 +292,7 @@
                     <div class="progress-fill" id="progressFill"></div>
                 </div>
                 <div class="progress-info" id="progressInfo">0 / 0 files</div>
+                <div class="current-file-info" id="currentFileInfo" style="text-align: center; margin-top: 8px; font-size: 0.9em; color: #333; font-weight: 600; display: none;"></div>
             </div>
         </div>
         
@@ -352,24 +353,36 @@
                     const progressText = document.getElementById('progressText');
                     const progressFill = document.getElementById('progressFill');
                     const progressInfo = document.getElementById('progressInfo');
+                    const currentFileInfo = document.getElementById('currentFileInfo');
                     
                     if (data.status === 'converting') {
                         const percentage = data.total > 0 ? (data.current / data.total) * 100 : 0;
                         const timeLeft = data.estimated_time > 0 ? ` (${Math.round(data.estimated_time)}s remaining)` : '';
-                        const currentFile = data.current_file ? `: ${data.current_file}` : '';
                         
-                        progressText.textContent = `Converting files${timeLeft}${currentFile}`;
+                        progressText.textContent = `Converting files${timeLeft}`;
                         progressFill.style.width = `${percentage}%`;
                         progressInfo.textContent = `${data.current} / ${data.total} files`;
+                        
+                        if (data.current_file) {
+                            currentFileInfo.textContent = `Processing: ${data.current_file}`;
+                            currentFileInfo.style.display = 'block';
+                        }
                     } else if (data.status === 'merging') {
                         progressText.textContent = 'Merging PDFs and creating bookmarks...';
                         progressFill.style.width = '100%';
                         progressInfo.textContent = 'Finalizing...';
+                        currentFileInfo.textContent = 'Creating merged document with bookmarks and TOC';
+                        currentFileInfo.style.display = 'block';
                     } else if (data.status === 'idle' && data.total > 0) {
                         progressText.textContent = 'Conversion completed!';
                         progressFill.style.width = '100%';
                         progressInfo.textContent = `${data.total} / ${data.total} files completed`;
-                        stopProgressTracking();
+                        currentFileInfo.textContent = 'All documents processed successfully';
+                        currentFileInfo.style.display = 'block';
+                        
+                        setTimeout(() => {
+                            stopProgressTracking();
+                        }, 2000);
                     }
                 })
                 .catch(error => {
@@ -387,6 +400,10 @@
             loading.style.display = 'block';
             submitButton.disabled = true;
             submitButton.textContent = 'Processing...';
+            
+            const currentFileInfo = document.getElementById('currentFileInfo');
+            currentFileInfo.style.display = 'none';
+            
             startProgressTracking();
         });
     </script>
